@@ -1,0 +1,173 @@
+---
+title: "Figures from 'Investigating Moran’s I Properties for Spatial Machine Learning: A Preliminary Analysis'"
+format:
+  html:
+    fig-width: 10 
+    fig-height: 6.5
+execute:
+  echo: false
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+---
+
+```{r}
+library(terra)
+library(tmap)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(tinytable)
+theme_set(theme_bw(base_size = 12))
+```
+
+```{r}
+#| label: load
+#| message: false
+targets::tar_load(raster_sample_df)
+targets::tar_load(raster_testing_sample_df)
+```
+
+```{r}
+#| label: fig-simulations
+#| fig-cap: "Examples of simulated outcomes based on the set of covariates with different ranges (10, 50, 100)"
+outcome_ex = rast(raster_sample_df$outcome[1:3])
+names(outcome_ex) = c("Range 10", "Range 50", "Range 100")
+crs(outcome_ex) = "local"
+tm_oex = tm_shape(outcome_ex) +
+  tm_raster(col.scale = tm_scale_continuous(limits = c(-11, 11)), 
+            col.free = FALSE,
+            col.legend = tm_legend(title = "",
+                                   frame = FALSE,
+                                   position = tm_pos_out("left", "center", , "top"))) +
+  tm_facets(ncol = 1) +
+  tm_layout(frame = FALSE)
+
+predictors_ex = rast(raster_sample_df$predictors[1:3]) 
+names(predictors_ex) = paste(rep(c("Range 10", "Range 50", "Range 100"), each = 6), names(predictors_ex))
+tm_pex = tm_shape(predictors_ex) +
+  tm_raster(col.scale = tm_scale_continuous(values = "vik"), 
+            col.free = FALSE,
+            col.legend = tm_legend(title = "",
+                                   frame = FALSE,
+                                   position = tm_pos_out("right", "center", , "bottom"))) +
+  tm_facets(ncol = 6) +
+  tm_layout(frame = TRUE,
+            panel.labels = rep(c("Covariate 1", "Covariate 2", "Covariate 3", "Covariate 4", "Covariate 5", "Covariate 6"), 3))
+tmap_arrange(tm_oex, tm_pex, widths = c(0.25, 0.75))
+```
+
+```{r}
+#| label: fig-sampling
+#| fig-cap: "Example of a training (350 locations) and testing sample (150 locations) on a simulated map with a range of 100"
+training_example = raster_sample_df |>
+  filter(size == 350, range == 100) |>
+  slice(1) |>
+  pull(all_samples) |>
+  first() |>
+  mutate(type = "training")
+testing_example = raster_testing_sample_df |>
+  filter(testing_size == 150, range == 100) |>
+  slice(1) |>
+  pull(testing_sampling) |>
+  first() |>
+  mutate(type = "testing")  
+sample_examples = bind_rows(training_example, testing_example) |>
+  mutate(type = factor(type, levels = c("training", "testing")))
+  
+tm_shape(outcome_ex[[3]]) +
+  tm_raster(col.scale = tm_scale_continuous(limits = c(-11, 11)), 
+            col.free = FALSE,
+            col.legend = tm_legend(title = "",
+                                   orientation = "landscape",
+                                   frame = FALSE,
+                                   position = tm_pos_out("center", "bottom"))) +
+  tm_shape(sample_examples) +
+  tm_dots(size = 0.15) +
+  tm_facets_wrap(by = "type", ncol = 2) +
+  tm_layout(frame = FALSE, scale = 2)
+```
+
+```{r}
+targets::tar_load(moran_global)
+targets::tar_load(moran_training_residuals)
+targets::tar_load(rmse_global)
+targets::tar_load(rmse_training)
+raster_sample_df$moran_global = moran_global
+raster_sample_df$moran_training = moran_training_residuals
+raster_sample_df$rmse_global = rmse_global
+raster_sample_df$rmse_training = rmse_training
+```
+
+```{r}
+targets::tar_load(moran_testing_residuals)
+targets::tar_load(rmse_testing)
+raster_testing_sample_df$moran_testing = moran_testing_residuals
+raster_testing_sample_df$rmse_testing = rmse_testing
+```
+
+```{r}
+all_df = raster_sample_df |>
+  right_join(raster_testing_sample_df)
+all_df$range = as.factor(all_df$range)
+
+df_moran = all_df |>
+  pivot_longer(cols = c(moran_global, moran_training, moran_testing), names_to = "type", values_to = "value") |>
+  mutate(type = factor(type, levels = c("moran_global", "moran_training", "moran_testing"),
+                      labels = c("Overall", "Training", "Testing")))
+df_rmse = all_df |>
+  pivot_longer(cols = c(rmse_global, rmse_training, rmse_testing), names_to = "type", values_to = "value") |>
+  mutate(type = factor(type, levels = c("rmse_global", "rmse_training", "rmse_testing"),
+                      labels = c("Overall", "Training", "Testing")))
+```
+
+```{r}
+#| label: tbl-rmse
+#| tbl-cap: "Average RMSE for different ranges and sample types"
+df_rmse |>
+  group_by(Range = range, type) |>
+  summarise(mean = mean(value)) |>
+  pivot_wider(names_from = type, values_from = mean) |>
+  tt(digits = 3)
+```
+
+```{r}
+#| label: fig-moran
+#| fig-height: 4.5
+#| fig-cap: "Moran's *I* for different ranges and sample types"
+ggplot(df_moran, aes(x = type, y = value, fill = type)) +
+  geom_boxplot() +
+  labs(x = NULL, y = "Moran's I") +
+  guides(fill = "none") +
+  scale_fill_manual(values = c("#12239E", "#118DFF", "#E66C37")) +
+  facet_wrap(~range) +
+  theme_bw(base_size = 20)
+```
+
+```{r}
+all_df_long = all_df |>
+  pivot_longer(cols = c(rmse_global, rmse_training, rmse_testing, 
+ moran_global, moran_training, moran_testing), names_to = "type", values_to = "value") |>
+  separate(type, into = c("metric", "type"), sep = "_")
+all_df_wide = all_df_long |>
+  pivot_wider(names_from = metric, values_from = value) |>
+  mutate(type = factor(type, levels = c("global", "training", "testing"),
+                      labels = c("Overall", "Training", "Testing")))
+```
+
+```{r}
+#| label: fig-correlation
+#| fig-height: 5.5
+#| fig-cap: "Moran's *I* for different ranges and sample types"
+ggplot(all_df_wide, aes(x = rmse, y = moran, color = type)) +
+  geom_point(shape = 1) +
+  labs(x = "RMSE", y = "Moran's I", color = "Sampling type:") +
+  ggpubr::stat_cor(aes(label = paste(after_stat(rr.label), after_stat(p.label), sep = "~`,`~")),
+                   label.y.npc = 1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values = c("#12239E", "#118DFF", "#E66C37")) +
+  facet_grid(~range) +
+  scale_y_continuous(limits = c(-0.05, 1.1), breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  theme(legend.position = c(0.92, 0.15))
+```
