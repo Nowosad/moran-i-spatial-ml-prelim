@@ -4,8 +4,7 @@ library(tarchetypes)
 # Set target options:
 tar_option_set(
   packages = c("tibble", "purrr"), # Packages that your targets need for their tasks.
-  seed = 3,
-  format = "qs"
+  seed = 3
 )
 
 # Run the R scripts in the R/ folder with your custom functions:

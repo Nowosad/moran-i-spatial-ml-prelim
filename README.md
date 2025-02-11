@@ -1,6 +1,6 @@
 # Investigating Moran’s I Properties for Spatial Machine Learning: A Preliminary Analysis  
 
-This repository contains the code for the **AGILE 2025** short paper entitled "Investigating Moran’s I Properties for Spatial Machine Learning: A Preliminary Analysis".
+This repository contains the research code for the **AGILE 2025** short paper entitled "Investigating Moran’s I Properties for Spatial Machine Learning: A Preliminary Analysis".
 
 ## Getting Started
 
