@@ -1,5 +1,7 @@
 # Investigating Moran’s I Properties for Spatial Machine Learning: A Preliminary Analysis  
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15130499.svg)](https://doi.org/10.5281/zenodo.15130499)
+
 This repository contains the research code for the **AGILE 2025** short paper entitled "Investigating Moran’s I Properties for Spatial Machine Learning: A Preliminary Analysis".
 
 ## Getting Started
